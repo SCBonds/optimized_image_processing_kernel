@@ -1,0 +1,156 @@
+The objective of this assignment is optimize two image processing kernels to achieve better (faster) performance.  Image processing offers many examples that can benefit from optimization.  In this assignment, we consider two image processing kernels: 
+
+complex —  a combination of three operations: rotate by 90 degrees, flip horizontally, convert to grayscale
+motion — applies an offset blur to an image to simulate motion toward the top-left of the image
+
+Images
+For this assignment, we consider an image to be represented as a two-dimensional matrix M, where Mi,j denotes the value of (i,j)th pixel of M.  Pixel values are triples of red, green, and blue (RGB) values.  We consider only square images.  Let N denote the number of rows (and columns) of an image.  Rows and columns are numbered in C-style, from 0 to N-1. Given this image representation, the complex and motion kernels can be applied with simple math and loops.  
+
+Complex
+We can apply the "complex" kernel all at once, but if we were to apply each sub-operation one at a time, starting with:
+
+original image
+
+first we rotate clockwise:
+
+image after rotating clockwise
+
+then we mirror about the horizontal axis:
+
+image after mirroring about the horizontal axis
+
+then we convert to grayscale:
+
+image after converting to grayscale
+
+There is no need to apply these three operations separately.  We can apply them all at once with a single nested loop:
+
+Scan across each row i, left to right, and write to column N - i - 1, bottom to top.
+While writing to columns, instead of writing the original pixel, write the grayscale-converted pixel in which red, blue, and green all get the value: (red + blue + green) / 3. 
+
+Motion
+The motion operation is implemented by replacing every pixel value with an average of nine pixels:  the pixels that form a 3x3 block with the target pixel in the top left.  For pixels near the edge, which do not have this full 3x3 neighborhood, the new pixel value is the average of the applicable neighbors that it does have. 
+
+For example, applying motion to:
+
+original image
+
+produces:
+
+image after motion blur
+
+Setup
+Download and unpack performance.tar.gz Download performance.tar.gz.  The only file you are to modify and submit is kernels.c.  Looking at the file, notice a C structure into which you should insert the requested identifying information about yourself — do this right away so that you don’t forget.
+
+Data Structures
+The core data structure handles image representation.  A pixel is a struct as shown below:
+
+typedef struct {   
+  unsigned short red;
+  unsigned short green;
+  unsigned short blue;
+} pixel;
+As can be seen, RGB values have 16-bit representations.  An image I is represented as an one-dimensional array of pixels, where the (i,j)th pixel is I[RIDX(i,j,n)], where n is the dimension of the image matrix, and RIDX is a macro defined as follows:
+
+#define RIDX(i,j,n) ((i)*(n)+(j)) 
+See the file defs.h for this code.
+
+Kernels
+kernels.c contains naive implementations of both image operations.  Your task is to optimize them as much as you possibly can.  It is highly recommended you do this by writing totally new functions and keeping the naive implementation for a baseline reference.  The motion kernel utilizes a helper function called "weighted_combo".  You are also free to write new helper functions or different versions of this helper function to perform your optimizations (or even get rid of this helper altogether).
+
+Performance measures
+Our main performance measure is CPE (Cycles per Element).  If a function takes C cycles to run for an image of size N×N, the CPE value is C/(NxN).  When you build and run the driver program, its output shows CPE results for five different values of N.  The baseline measurements were made on a CADE lab1-x machine.
+
+The ratios (speedups) of your optimized implementation over the naive one constitute a score of your implementation.  To summarize the overall effect over different values of N, we compute the geometric mean of the results for these five values.
+
+Assumptions
+You may assume that N is a multiple of 32.  Your code must run correctly for all such values of N, but we measure its performance only for the five values reported by the driver.
+
+Infrastructure
+We have provided support code to help you test the correctness of your implementations and measure their performance.   NOTE:  The only source file you are to modify and submit is kernels.c.
+
+Versioning
+We recommend that you write many versions of the complex and motion routines.  To help you compare the performance of all the different versions you’ve written, we provide a way of registering such functions.
+
+For example, the provided kernels.c contains the following function:
+
+void register_complex_functions() {
+  add_complex_function(&complex, complex_descr);
+  add_complex_function(&naive_complex, naive_complex_descr);
+} 
+This function contains one or more calls to add_complex_function.  In the example above, add_complex_function registers the function called complex along with a string called complex_descr, which is an ASCII description of what the function does.  See kernels.c for how to create the string descriptions.  Note that this string can be at most 256 characters long.
+
+By default, the naive_complex function is registered twice, because complex simply calls naive_complex.  However, as you create optimized functions, you should change the call in complex to use your best function.  This is the one for which you will be graded.
+
+A similar function for your motion kernels is provided in the kernels.c.
+
+Driver
+Your optimized kernel code is linked with supplied object code to create an executable called driver.  To create driver, run the command:
+
+make driver
+Re-make driver each time you change the code in kernels.c.
+
+To test your implementations, run the command:
+
+./driver
+driver may take a while to run, especially the first time.
+
+The driver can run in four different modes:
+
+default mode — all versions of your implementation are included
+
+autograder mode — only the complex and motion functions are included (this mode is used for grading)
+
+file mode — only versions mentioned in an input file are included
+
+dump mode — a one-line description of each version is dumped to a text file (You can then edit this text file to keep only those versions that you’d like to test using the file mode, and you can specify whether to quit after dumping the file or if your implementations are to be run.)
+
+If executed without any arguments, driver runs in default mode.  Other modes and options can be specified by command-line arguments to driver, as listed below:
+
+-g — autograder mode
+
+-f ‹funcfile› — file mode (execute only those versions specified in ‹funcfile›)
+
+-d ‹dumpfile› — dump mode (dump the names of all versions to a file called ‹dumpfile›, one line per version)
+
+-q — quit after dumping version names to a dump file (to be used in tandem with -d; for example, to quit immediately after printing the dump file, type ./driver -qd dumpfile)
+
+-i — write the main test images to files that end in ".image" (each file contains N twice to indicate the height and width of the image, and it contains the pixel values as a sequence of red, green, and blue numbers)
+
+Combined with -m gradient or -m squares or -m lines and viewed with a suitable decoder, these dumps can be helpful in debugging problems with your functions.  When using -i or -I (below) unregister all kernels except the one you are debugging.
+
+One way to view a file’s image is to run:
+
+racket show-image.rkt ‹filename›
+on a CADE machine, or you can use:
+
+racket show-image.rkt --png ‹filename›
+to generate a ".png" version.
+
+-I — write all the benchmark images to files that end in ".image"
+
+-m ‹mode› — select the starting image, where ‹mode› can be random, gradient, squares, or lines (the default is random, the other modes use a discernible pattern that help with debugging if your optimized kernels produce the wrong image)
+
+-h — print the command line usage
+
+Evaluation
+Optimizations for complex and motion each count for 50% of the grade.  The score for each is based on the following:
+
+Correctness:  NO CREDIT is earned for buggy code that does not compile or causes the driver to complain.  This includes code that correctly operates on the test sizes, but incorrectly on image matrices of other sizes.  (Recall, you may assume that the image dimension is a multiple of 32.)
+
+CPE:  Full credit is earned for implementations of complex and motion that are correct and achieve mean CPE improvements at or above certain thresholds (see below).
+
+The baseline CPE for the naive kernels must be reported as 1.0 on the machine you are using.  Grading will occur on a machine with a baseline of 1.0.
+complex:
+
+— between 1.0 - 1.3 mean speedup:  linear mapping between 0 - 15 points
+
+— between 1.3 - 1.7 mean speedup:  linear mapping between 15 - 50 points
+
+motion:
+— between 1.0 - 2.5 mean speedup:  linear mapping between 0 - 35 points
+
+— between 2.5 - 3.0 mean speedup:  linear mapping between 35 - 50 points
+
+Your score will be determined by the speedup achieved when we run the grader.  This means that if your speedup occasionally fluctuates to below the threshold, you should strive to tune performance a little more to avoid the risk of it being below the requirement during grading.
+
